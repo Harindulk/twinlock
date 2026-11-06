@@ -109,12 +109,36 @@ async function onSolved(moves: number[]) {
     setReceipt(
       'ok',
       `Verified on Solana`,
-      `<dl><dt>Replayed</dt><dd>${moves.length} moves, solved</dd><dt>Slot</dt><dd class="mono">${r.slot}</dd><dt>Tx</dt><dd>${txLink(r.sig)}</dd></dl>`,
+      `<dl><dt>Replayed</dt><dd>${moves.length} moves, solved</dd><dt>Slot</dt><dd class="mono">${r.slot}</dd><dt>Tx</dt><dd>${txLink(r.sig)}</dd></dl>${nextButton()}`,
       'recorded',
     );
+    wireNext();
+    ensureName().then(refreshBoard);
     refreshBoard();
   } catch (e) {
     showChainError(e, 'Not recorded');
+  }
+}
+
+function nextLevel(): LevelEntry | null {
+  const list = current.official ? official : community;
+  const i = list.indexOf(current);
+  return i >= 0 && i + 1 < list.length ? list[i + 1] : null;
+}
+const nextButton = () => (nextLevel() ? `<button class="btn next" id="btn-next" type="button">Next: ${escapeHtml(nextLevel()!.title)} (N)</button>` : '');
+function wireNext() {
+  const b = document.getElementById('btn-next');
+  if (b) b.onclick = () => select(nextLevel()!);
+}
+
+// The default name is only local until it is written once on chain.
+async function ensureName() {
+  if (localStorage.getItem('twinlock.nameOnChain') === nameInput.value) return;
+  try {
+    await chain.setName(nameInput.value.trim().slice(0, 16));
+    localStorage.setItem('twinlock.nameOnChain', nameInput.value);
+  } catch {
+    /* cosmetic; retried after the next clear */
   }
 }
 
@@ -196,6 +220,7 @@ window.addEventListener('keydown', (e) => {
   } else if (e.key === 'z' || e.key === 'Z' || e.key === 'Backspace') game.undo();
   else if (e.key === 'r' || e.key === 'R') game.restart();
   else if (e.key === 'm' || e.key === 'M') muteBtn.click();
+  else if ((e.key === 'n' || e.key === 'N') && game.done && nextLevel()) select(nextLevel()!);
 });
 let touch: [number, number] | null = null;
 const well = $('board-well');
@@ -223,6 +248,7 @@ nameInput.addEventListener('change', async () => {
   localStorage.setItem('twinlock.name', n);
   try {
     await chain.setName(n);
+    localStorage.setItem('twinlock.nameOnChain', n);
     refreshBoard();
   } catch {
     /* name is cosmetic; the next change retries */

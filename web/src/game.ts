@@ -149,7 +149,7 @@ export class Game {
 
   resize() {
     const box = this.canvas.parentElement!.getBoundingClientRect();
-    const fit = Math.floor(Math.min((box.width - 32) / this.g.w, (box.height - 32) / this.g.h, 88));
+    const fit = Math.floor(Math.min((box.width - 32) / this.g.w, (box.height - 32) / this.g.h, 112));
     this.cell = Math.max(32, fit);
     const dpr = window.devicePixelRatio || 1;
     this.canvas.style.width = `${this.cell * this.g.w}px`;
@@ -208,7 +208,7 @@ export class Game {
         ctx.fillStyle = k === PAD_A ? COLORS.aSoft : COLORS.bSoft;
         ctx.lineWidth = Math.max(2, c * 0.05);
         ctx.beginPath();
-        ctx.arc(x + c / 2, y + c / 2, c * (0.3 + won * 0.12), 0, Math.PI * 2);
+        ctx.arc(x + c / 2, y + c / 2, c * (0.41 + won * 0.06), 0, Math.PI * 2);
         ctx.fill();
         ctx.stroke();
       }

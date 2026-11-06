@@ -109,6 +109,7 @@ a { color: var(--accent); }
 .stamp { animation: stamp 420ms var(--ease); }
 @keyframes stamp { from { transform: scale(1.06); opacity: 0; } to { transform: none; opacity: 1; } }
 
+.receipt .next { margin-top: 12px; width: 100%; }
 .tamper { margin-top: 12px; }
 .tamper summary { cursor: pointer; color: var(--muted); font-size: 13px; }
 .tamper p { margin: 8px 0; font-size: 13px; color: var(--muted); }
