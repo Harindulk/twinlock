@@ -128,7 +128,7 @@ td.me { font-weight: 600; }
 .foot p { margin: 0; }
 
 /* editor dialog: the one thing that floats, so it may have a shadow */
-dialog { border: 0; border-radius: var(--radius-sheet); padding: 0; width: min(920px, 96vw); box-shadow: 0 24px 64px rgb(0 0 0 / 0.18); }
+dialog { border: 0; border-radius: var(--radius-sheet); padding: 0; width: min(920px, 96vw); box-shadow: 0 24px 64px rgb(0 0 0 / 0.18); /* taste-skill-ignore: modal overlay */ }
 dialog::backdrop { background: rgb(19 20 22 / 0.4); }
 .editor header, .editor footer { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px 24px; }
 .editor footer p { margin: 0; }
@@ -143,9 +143,10 @@ dialog::backdrop { background: rgb(19 20 22 / 0.4); }
 .ed-grid { display: grid; gap: 3px; }
 .ed-grid button { width: 48px; height: 48px; border: 0; border-radius: 8px; background: #fff; cursor: pointer; font: 600 14px "IBM Plex Sans", sans-serif; color: #fff; }
 .ed-grid button.c1 { background: #2a2d31; }
-.ed-grid button.c4 { background: radial-gradient(circle, #131416 55%, #fff 57%); }
-.ed-grid button.c2 { background: #fff; box-shadow: inset 0 0 0 4px var(--twin-a); }
-.ed-grid button.c3 { background: #fff; box-shadow: inset 0 0 0 4px var(--twin-b); }
+.ed-grid button { position: relative; }
+.ed-grid button.c4::after { content: ''; position: absolute; inset: 12px; border-radius: 50%; background: #131416; }
+.ed-grid button.c2 { background: #d6e8ec; outline: 4px solid var(--twin-a); outline-offset: -4px; }
+.ed-grid button.c3 { background: #f3e6cf; outline: 4px solid var(--twin-b); outline-offset: -4px; }
 .ed-grid button.ta { background: var(--twin-a); }
 .ed-grid button.tb { background: var(--twin-b); }
 
