@@ -1,0 +1,13 @@
+node_modules/
+.env*
+*.keypair.json
+id.json
+target/
+Library/
+Temp/
+Builds/
+test-ledger/
+.anchor/
+.DS_Store
+dist/
+.surfpool/

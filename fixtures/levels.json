@@ -1,0 +1,187 @@
+{
+ "legend": "rows: . floor, # wall, a pad for A, b pad for B, x pit, A twin A start, B twin B start. moves: U D L R. B mirrors L/R.",
+ "cases": [
+  {
+   "name": "straight solve",
+   "rows": [
+    "a.A.B.b"
+   ],
+   "moves": "LL",
+   "expect": {
+    "solved": 2
+   }
+  },
+  {
+   "name": "mirror: one key moves twins apart",
+   "rows": [
+    ".aA.Bb."
+   ],
+   "moves": "L",
+   "expect": {
+    "solved": 1
+   }
+  },
+  {
+   "name": "vertical moves are shared",
+   "rows": [
+    "A.B",
+    "...",
+    "a.b"
+   ],
+   "moves": "DD",
+   "expect": {
+    "solved": 2
+   }
+  },
+  {
+   "name": "wall holds one twin while the other moves",
+   "rows": [
+    "#A..Bb",
+    "a....."
+   ],
+   "moves": "LDLU",
+   "expect": {
+    "solved": 4
+   }
+  },
+  {
+   "name": "edge stall lines twins up",
+   "rows": [
+    "a.A#B..b"
+   ],
+   "moves": "LLL",
+   "expect": {
+    "solved": 3
+   }
+  },
+  {
+   "name": "edge of grid blocks",
+   "rows": [
+    "A..B",
+    "a..b"
+   ],
+   "moves": "LD",
+   "expect": {
+    "solved": 2
+   }
+  },
+  {
+   "name": "same target cell blocks both",
+   "rows": [
+    "A.B",
+    "a.b"
+   ],
+   "moves": "RD",
+   "expect": {
+    "solved": 2
+   }
+  },
+  {
+   "name": "swap blocks both",
+   "rows": [
+    "AB",
+    "ba"
+   ],
+   "moves": "RD",
+   "expect": "not_solved"
+  },
+  {
+   "name": "falling into a pit fails at that step",
+   "rows": [
+    "A.B",
+    "x.b",
+    "a.."
+   ],
+   "moves": "D",
+   "expect": {
+    "fell": 1
+   }
+  },
+  {
+   "name": "moves after solving are rejected",
+   "rows": [
+    "aA.Bb"
+   ],
+   "moves": "LR",
+   "expect": "extra_moves"
+  },
+  {
+   "name": "running out of moves is not solved",
+   "rows": [
+    "a.A.B..b"
+   ],
+   "moves": "LL",
+   "expect": "not_solved"
+  },
+  {
+   "name": "empty move list is not solved",
+   "rows": [
+    "aA.Bb"
+   ],
+   "moves": "",
+   "expect": "not_solved"
+  },
+  {
+   "name": "65 moves is too many",
+   "rows": [
+    "a......A",
+    "B......b"
+   ],
+   "moves": "UDUDUDUDUDUDUDUDUDUDUDUDUDUDUDUDUDUDUDUDUDUDUDUDUDUDUDUDUDUDUDUDU",
+   "expect": "too_many_moves"
+  },
+  {
+   "name": "8x8 corner to corner",
+   "rows": [
+    "A.......",
+    ".......B",
+    "........",
+    "........",
+    "........",
+    "........",
+    ".......a",
+    "b......."
+   ],
+   "moves": "DDDDDDRRRRRRR",
+   "expect": {
+    "solved": 13
+   }
+  },
+  {
+   "name": "twins start on same cell is a bad level",
+   "rows": [
+    "a.A.b"
+   ],
+   "moves": "L",
+   "start_override": [
+    2,
+    2
+   ],
+   "expect": "bad_level"
+  },
+  {
+   "name": "missing pad B is a bad level",
+   "rows": [
+    "aA.B."
+   ],
+   "moves": "L",
+   "expect": "bad_level"
+  },
+  {
+   "name": "two pad A is a bad level",
+   "rows": [
+    "aA.Bba"
+   ],
+   "moves": "L",
+   "expect": "bad_level"
+  },
+  {
+   "name": "grid wider than 8 is a bad level",
+   "rows": [
+    "aA.....Bb"
+   ],
+   "moves": "L",
+   "expect": "bad_level"
+  }
+ ]
+}
