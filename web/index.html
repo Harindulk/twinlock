@@ -20,7 +20,7 @@
       <h1 class="level-title"><span id="level-name">Level</span> <span class="pill" id="net-pill">Solana devnet</span></h1>
       <div class="topbar-right">
         <label class="name-field">
-          <span>Player</span>
+          <span class="lbl">Player</span>
           <input id="player-name" maxlength="16" autocomplete="off" spellcheck="false" />
         </label>
         <button class="btn" id="btn-editor" type="button">Make a level</button>
@@ -40,7 +40,7 @@
           <canvas id="board" aria-label="Puzzle board. Arrow keys or swipe move both twins; the amber twin mirrors left and right." role="img"></canvas>
         </div>
         <div class="board-bar">
-          <p class="rule-line"><span class="dot a"></span>Teal moves the way you press. <span class="dot b"></span>Amber mirrors left and right.</p>
+          <p class="rule-line"><span><span class="dot a"></span> Teal moves the way you press.</span> <span><span class="dot b"></span> Amber mirrors left and right.</span> <span class="goal">Get both onto their rings. Arrows or swipe, Z undo, R restart.</span></p>
           <div class="board-actions">
             <button class="btn ghost" id="btn-undo" type="button" title="Z">Undo</button>
             <button class="btn ghost" id="btn-restart" type="button" title="R">Restart</button>

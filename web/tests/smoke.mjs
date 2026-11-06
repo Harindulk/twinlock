@@ -36,6 +36,43 @@ for (const [label, vp] of [['desktop', { width: 1440, height: 900 }], ['phone', 
   check(errors.length === 0, `${label}: no console errors ${errors.join(' | ')}`);
   await page.close();
 }
+// regressions from the fresh-eyes playtest
+{
+  const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+  await page.goto(url);
+  await page.waitForSelector('#official-list button');
+  // P0: watching the best solution must not record a clear for the viewer
+  await page.click('#official-list button >> nth=1');
+  await page.waitForSelector('#btn-watch:not([hidden])', { timeout: 10000 }).catch(() => {});
+  const me = await page.evaluate(() => JSON.parse(localStorage.getItem('twinlock.progress') || '{}'));
+  await page.click('#btn-watch');
+  await page.waitForTimeout(3500);
+  const after = await page.evaluate(() => JSON.parse(localStorage.getItem('twinlock.progress') || '{}'));
+  check(JSON.stringify(me) === JSON.stringify(after) && (await page.locator('#receipt.ok, #receipt.pending').count()) === 0, 'watching the best solution records nothing');
+  // P0: a pending receipt must not follow you to another level
+  await page.click('#official-list button >> nth=0');
+  await page.keyboard.press('ArrowLeft');
+  await page.keyboard.press('ArrowLeft');
+  await page.click('#official-list button >> nth=4');
+  await page.waitForTimeout(4000);
+  check((await page.locator('#receipt.ok').count()) === 0, 'switching level while a clear is pending keeps the new level clean');
+  // P2: undo after solving clears the receipt
+  await page.click('#official-list button >> nth=0');
+  await page.keyboard.press('ArrowLeft');
+  await page.keyboard.press('ArrowLeft');
+  await page.waitForSelector('#receipt.ok', { timeout: 20000 }).catch(() => {});
+  await page.keyboard.press('z');
+  check((await page.locator('#receipt.ok').count()) === 0, 'undo after a solve resets the receipt');
+  // P1: the editor refuses stacked twins before you play
+  await page.click('#btn-editor');
+  await page.click('[data-paint="2"]'); await page.click('#ed-grid button >> nth=12');
+  await page.click('[data-paint="3"]'); await page.click('#ed-grid button >> nth=17');
+  await page.click('[data-paint="A"]'); await page.click('#ed-grid button >> nth=5');
+  check((await page.locator('#ed-status').textContent()).includes('separate tiles') && (await page.locator('#ed-grid .ta').count()) === 1 && (await page.locator('#ed-grid .tb').count()) === 1, 'editor: refuses to stack the twins');
+  await page.click('[data-paint="0"]'); await page.click('#ed-grid button >> nth=17');
+  check(await page.locator('#ed-test').isDisabled(), 'editor: publish disabled while a pad is missing');
+  await page.close();
+}
 // editor: publish a level, then a second player finds and clears it
 {
   const name = `Smoke ${Date.now() % 100000}`;

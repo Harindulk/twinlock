@@ -5,6 +5,8 @@ export interface GameHooks {
   onSolved?(moves: number[]): void;
   onFell?(): void;
   onBlocked?(): void;
+  /** Board went back to the start (restart, undo, load, playback). */
+  onReset?(): void;
 }
 
 const COLORS = {
@@ -68,6 +70,7 @@ export class Game {
     this.done = this.dead = false;
     this.queue = [];
     this.playing = false;
+    this.hooks.onReset?.();
     const now = performance.now();
     this.animA = { from: this.xy(this.a), to: this.xy(this.a), t0: now - 1000 };
     this.animB = { from: this.xy(this.b), to: this.xy(this.b), t0: now - 1000 };
@@ -77,7 +80,7 @@ export class Game {
   /** Replays a move list from the start, animated, for watching a stored solution. */
   playback(moves: number[]) {
     this.restart();
-    this.playing = true;
+    this.playing = true; // stays true through the last step so onSolved never fires for a replay
     this.queue = [...moves];
   }
 
@@ -115,7 +118,7 @@ export class Game {
       this.dead = true;
       this.fellAt = now;
       if (animate) this.trauma = Math.min(1, this.trauma + 0.4);
-      if (animate) this.hooks.onFell?.();
+      if (animate && !this.playing) this.hooks.onFell?.();
     } else if (solved(this.g, this.a, this.b)) {
       this.done = true;
       this.solvedAt = now;
@@ -123,7 +126,7 @@ export class Game {
         this.burst(this.a, COLORS.a);
         this.burst(this.b, COLORS.b);
       }
-      if (animate) this.hooks.onSolved?.([...this.moves]);
+      if (animate && !this.playing) this.hooks.onSolved?.([...this.moves]);
     }
     if (animate) this.hooks.onMove?.(this.moves);
   }

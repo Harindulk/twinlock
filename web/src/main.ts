@@ -1,7 +1,7 @@
 import './style.css';
 import { Game } from './game';
 import { OFFICIAL } from './levels';
-import { fromRows, unpackMoves, type Grid, FLOOR, PAD_A, PAD_B } from './rules';
+import { fromRows, unpackMoves, validateLevel, type Grid, FLOOR, PAD_A, PAD_B } from './rules';
 import { solve } from './solver';
 import * as chain from './chain';
 import { sfx, muted, setMuted } from './sfx';
@@ -30,6 +30,7 @@ const official: LevelEntry[] = OFFICIAL.map((l) => ({
   official: true,
 }));
 let community: LevelEntry[] = [];
+let run = 0; // bumped on every reset; async chain results only update the UI for the run that sent them
 let current: LevelEntry = official[0];
 
 const game = new Game($('board') as HTMLCanvasElement, {
@@ -38,6 +39,10 @@ const game = new Game($('board') as HTMLCanvasElement, {
     if (m.length) sfx.move(m.length);
   },
   onBlocked: () => sfx.blocked(),
+  onReset: () => {
+    run++;
+    if (current) setReceipt('idle', '', idleText());
+  },
   onSolved: (moves) => {
     sfx.solved();
     onSolved(moves);
@@ -74,13 +79,15 @@ function select(l: LevelEntry) {
   $('level-name').textContent = l.title;
   $('stat-par').textContent = l.par ? String(l.par) : '–';
   $('stat-best').textContent = l.best ? String(l.best) : '–';
-  setReceipt('idle', '', `<p>${l.draft ? 'Solve your level to publish it. The program checks your solution before the level exists.' : 'Solve the board. Your move list goes to the Twinlock program, which replays it move by move and only records a clear it can reproduce.'}</p>`);
+  setReceipt('idle', '', idleText());
   ($('btn-forge') as HTMLButtonElement).disabled = !l.address;
   renderLists();
   refreshBoard();
 }
 
 // ---------- proof receipt ----------
+const idleText = () =>
+  `<p>${current.draft ? 'Solve your level to publish it. The program checks your solution before the level exists.' : 'Solve the board. Your move list goes to the Twinlock program, which replays it move by move and only records a clear it can reproduce.'}</p>`;
 function setReceipt(state: 'idle' | 'pending' | 'ok' | 'bad', head: string, body: string, pill?: string) {
   const r = $('receipt');
   r.className = `receipt ${state}`;
@@ -103,20 +110,24 @@ async function onSolved(moves: number[]) {
   }
   renderLists();
   if (!current.address) return;
+  const myRun = run;
+  const prevBest = local;
   setReceipt('pending', `Solved in ${moves.length}. Sending to Solana…`, `<p class="muted">The program is replaying your ${moves.length} moves.</p>`);
   try {
     const r = await chain.submitClear(current.address, moves);
+    if (myRun !== run) return;
+    const kept = prevBest && prevBest < moves.length ? `<dt>Your best</dt><dd>still ${prevBest} moves</dd>` : '';
     setReceipt(
       'ok',
       `Verified on Solana`,
-      `<dl><dt>Replayed</dt><dd>${moves.length} moves, solved</dd><dt>Slot</dt><dd class="mono">${r.slot}</dd><dt>Tx</dt><dd>${txLink(r.sig)}</dd></dl>${nextButton()}`,
+      `<dl><dt>Replayed</dt><dd>${moves.length} moves, solved</dd>${kept}<dt>Slot</dt><dd class="mono">${r.slot}</dd><dt>Tx</dt><dd>${txLink(r.sig)}</dd></dl>${nextButton()}`,
       'recorded',
     );
     wireNext();
     ensureName().then(refreshBoard);
     refreshBoard();
   } catch (e) {
-    showChainError(e, 'Not recorded');
+    if (myRun === run) showChainError(e, 'Not recorded');
   }
 }
 
@@ -157,12 +168,13 @@ const escapeHtml = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '
 $('btn-forge').onclick = async () => {
   if (!current.address) return;
   const forged = [current.grid.a % 4]; // any single move: it cannot reach both pads
+  const myRun = run;
   setReceipt('pending', 'Sending a forged 1-move clear…', `<p class="muted">The client claims a 1-move solve. The program replays it.</p>`);
   try {
     const r = await chain.submitClear(current.address, forged, { skipPreflight: true });
-    setReceipt('ok', 'Accepted?', `<p>Tx ${txLink(r.sig)}</p>`);
+    if (myRun === run) setReceipt('ok', 'Accepted?', `<p>Tx ${txLink(r.sig)}</p>`);
   } catch (e) {
-    showChainError(e, 'Forged clear rejected');
+    if (myRun === run) showChainError(e, 'Forged clear rejected');
   }
 };
 
@@ -238,12 +250,13 @@ const syncMute = () => (muteBtn.textContent = muted ? 'Sound off' : 'Sound on');
 muteBtn.onclick = () => (setMuted(!muted), syncMute());
 syncMute();
 $('btn-restart').onclick = () => game.restart();
-window.addEventListener('resize', () => game.resize());
+new ResizeObserver(() => current && game.resize()).observe(well);
 
 // ---------- player name ----------
 const nameInput = $('player-name') as HTMLInputElement;
 nameInput.value = localStorage.getItem('twinlock.name') || `player-${chain.playerAddress().slice(0, 4)}`;
 nameInput.addEventListener('change', async () => {
+  if (!nameInput.value.trim()) nameInput.value = `player-${chain.playerAddress().slice(0, 4)}`;
   const n = nameInput.value.trim().slice(0, 16);
   localStorage.setItem('twinlock.name', n);
   try {
@@ -270,8 +283,9 @@ function edRender() {
       b.className = `c${ed.cells[i]} ${i === ed.a ? 'ta' : i === ed.b ? 'tb' : ''}`;
       b.setAttribute('aria-label', `cell ${(i % ed.w) + 1},${Math.floor(i / ed.w) + 1}`);
       b.onclick = () => {
-        if (paint === 'A') { ed.a = i; ed.cells[i] = FLOOR; }
-        else if (paint === 'B') { ed.b = i; ed.cells[i] = FLOOR; }
+        if ((paint === 'A' || paint === 'B') && ed.cells[i] !== FLOOR) edNote = 'Twins start on an empty floor tile.';
+        else if (paint === 'A') { if (i !== ed.b) ed.a = i; else edNote = 'The twins need separate tiles.'; }
+        else if (paint === 'B') { if (i !== ed.a) ed.b = i; else edNote = 'The twins need separate tiles.'; }
         else {
           const v = Number(paint);
           if (v === PAD_A || v === PAD_B) ed.cells = ed.cells.map((c) => (c === v ? FLOOR : c));
@@ -284,11 +298,19 @@ function edRender() {
     }),
   );
   const g = edGrid();
-  const s = solve(g);
-  $('ed-status').textContent = !g.cells.includes(PAD_A) || !g.cells.includes(PAD_B)
-    ? 'Place one teal pad and one amber pad.'
-    : s ? `Solvable. Shortest solution: ${s.length} moves. Now prove it yourself.` : 'No solution exists yet. Change the walls or pits.';
+  const ok = validateLevel(g);
+  const s = ok ? solve(g) : null;
+  $('ed-status').textContent = edNote
+    ? edNote
+    : !g.cells.includes(PAD_A) || !g.cells.includes(PAD_B)
+      ? 'Place one teal pad and one amber pad.'
+      : !ok
+        ? 'Each twin needs its own empty floor tile.'
+        : s ? `Solvable. Shortest solution: ${s.length} moves. Now prove it yourself.` : 'No solution exists yet. Change the walls or pits.';
+  edNote = '';
+  ($('ed-test') as HTMLButtonElement).disabled = !s;
 }
+let edNote = '';
 
 function edGrid(): Grid {
   // re-pack the cells into the w*h layout the program expects
@@ -296,8 +318,14 @@ function edGrid(): Grid {
 }
 
 function edResize() {
-  const w = Math.min(8, Math.max(2, Number(($('ed-w') as HTMLInputElement).value)));
-  const h = Math.min(8, Math.max(2, Number(($('ed-h') as HTMLInputElement).value)));
+  const clamp = (id: string, old: number) => {
+    const el = $(id) as HTMLInputElement;
+    const v = Math.min(8, Math.max(2, Math.round(Number(el.value)) || old));
+    el.value = String(v);
+    return v;
+  };
+  const w = clamp('ed-w', ed.w);
+  const h = clamp('ed-h', ed.h);
   const old = ed;
   const cells = new Array(64).fill(FLOOR);
   for (let y = 0; y < Math.min(h, old.h); y++) for (let x = 0; x < Math.min(w, old.w); x++) cells[y * w + x] = old.cells[y * old.w + x];
@@ -324,24 +352,28 @@ $('ed-w').addEventListener('change', edResize);
 $('ed-h').addEventListener('change', edResize);
 $('ed-test').onclick = () => {
   const g = edGrid();
-  if (!solve(g)) return;
+  if (!validateLevel(g) || !solve(g)) return;
   dlg.close();
   const name = ($('ed-name') as HTMLInputElement).value.trim() || 'Untitled';
   select({ title: name, grid: g, official: false, draft: true });
 };
 
 async function publishDraft(moves: number[]) {
+  const draft = current;
+  const myRun = run;
   setReceipt('pending', 'Publishing…', `<p class="muted">The program replays your ${moves.length}-move solution before it creates the level.</p>`);
   try {
-    const r = await chain.publishLevel(current.grid, current.title, moves);
-    const entry: LevelEntry = { title: current.title, grid: current.grid, address: r.address, par: moves.length, best: moves.length, official: false };
+    const r = await chain.publishLevel(draft.grid, draft.title, moves);
+    const entry: LevelEntry = { title: draft.title, grid: draft.grid, address: r.address, par: moves.length, best: moves.length, official: false };
     community.unshift(entry);
+    renderLists();
+    if (myRun !== run || current !== draft) return;
     setReceipt('ok', 'Level published', `<dl><dt>Proof</dt><dd>${moves.length} moves replayed</dd><dt>Level</dt><dd><a class="mono" href="${chain.explorerAddress(r.address)}" target="_blank" rel="noopener">${short(r.address)}</a></dd><dt>Tx</dt><dd>${txLink(r.sig)}</dd></dl>`, 'on chain');
     current = entry;
     renderLists();
     refreshBoard();
   } catch (e) {
-    showChainError(e, 'Not published');
+    if (myRun === run && current === draft) showChainError(e, 'Not published');
   }
 }
 
