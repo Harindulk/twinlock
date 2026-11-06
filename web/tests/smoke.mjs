@@ -36,5 +36,37 @@ for (const [label, vp] of [['desktop', { width: 1440, height: 900 }], ['phone', 
   check(errors.length === 0, `${label}: no console errors ${errors.join(' | ')}`);
   await page.close();
 }
+// editor: publish a level, then a second player finds and clears it
+{
+  const name = `Smoke ${Date.now() % 100000}`;
+  const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+  await page.goto(url);
+  await page.waitForSelector('#official-list button');
+  await page.click('#btn-editor');
+  await page.click('[data-paint="2"]');
+  await page.click('#ed-grid button >> nth=12');
+  await page.click('[data-paint="3"]');
+  await page.click('#ed-grid button >> nth=17');
+  await page.fill('#ed-name', name);
+  check((await page.locator('#ed-status').textContent()).includes('Shortest solution: 2'), 'editor: solver reports 2 moves');
+  await page.click('#ed-test');
+  await page.keyboard.press('ArrowDown');
+  await page.keyboard.press('ArrowDown');
+  await page.waitForSelector('#receipt.ok', { timeout: 20000 }).catch(() => {});
+  await page.screenshot({ path: `${shots}/editor-published.png` });
+  check((await page.locator('#receipt').textContent()).includes('Level published'), 'editor: level published on chain');
+  const other = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+  await other.goto(url);
+  await other.waitForSelector(`#community-list button:has-text("${name}")`, { timeout: 15000 }).catch(() => {});
+  const btn = other.locator(`#community-list button:has-text("${name}")`);
+  check((await btn.count()) === 1, 'second player sees the community level');
+  if (await btn.count()) {
+    await btn.click();
+    await other.keyboard.press('ArrowDown');
+    await other.keyboard.press('ArrowDown');
+    await other.waitForSelector('#receipt.ok', { timeout: 20000 }).catch(() => {});
+    check(await other.locator('#receipt.ok').count() === 1, 'second player clears it on chain');
+  }
+}
 await browser.close();
 process.exit(fails.length ? 1 : 0);
