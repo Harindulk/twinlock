@@ -19,6 +19,8 @@ const COLORS = {
 };
 
 const DIR_VEC = [[0, -1], [0, 1], [-1, 0], [1, 0]];
+
+interface Particle { x: number; y: number; vx: number; vy: number; life: number; max: number; color: string; size: number }
 const ease = (t: number) => 1 - (1 - t) ** 3;
 
 interface Anim {
@@ -44,6 +46,9 @@ export class Game {
   private fellAt = 0;
   private queue: number[] = [];
   private playing = false;
+  private particles: Particle[] = [];
+  private trauma = 0;
+  private lastFrame = 0;
 
   constructor(private canvas: HTMLCanvasElement, private hooks: GameHooks = {}) {
     this.ctx = canvas.getContext('2d')!;
@@ -92,8 +97,16 @@ export class Game {
   private step(dir: number, animate: boolean) {
     const r = applyMove(this.g, this.a, this.b, dir);
     const now = animate ? performance.now() : -1e9;
-    this.animA = { from: this.xy(this.a), to: this.xy(r.a), t0: now, bump: r.a === this.a ? dir : undefined };
-    this.animB = { from: this.xy(this.b), to: this.xy(r.b), t0: now, bump: r.b === this.b ? mirror(dir) : undefined };
+    // start from where each twin is drawn right now, so fast input never snaps
+    const fromA = animate ? this.drawnPos(this.animA, now) : this.xy(this.a);
+    const fromB = animate ? this.drawnPos(this.animB, now) : this.xy(this.b);
+    this.animA = { from: fromA, to: this.xy(r.a), t0: now, bump: r.a === this.a ? dir : undefined };
+    this.animB = { from: fromB, to: this.xy(r.b), t0: now, bump: r.b === this.b ? mirror(dir) : undefined };
+    if (animate) {
+      if (r.a !== this.a) this.dust(this.a, COLORS.a);
+      if (r.b !== this.b) this.dust(this.b, COLORS.b);
+      if (r.a === this.a || r.b === this.b) this.trauma = Math.min(1, this.trauma + 0.12);
+    }
     this.a = r.a;
     this.b = r.b;
     this.moves.push(dir);
@@ -101,14 +114,34 @@ export class Game {
     if (fell(this.g, this.a, this.b)) {
       this.dead = true;
       this.fellAt = now;
+      if (animate) this.trauma = Math.min(1, this.trauma + 0.4);
       if (animate) this.hooks.onFell?.();
     } else if (solved(this.g, this.a, this.b)) {
       this.done = true;
       this.solvedAt = now;
+      if (animate) {
+        this.burst(this.a, COLORS.a);
+        this.burst(this.b, COLORS.b);
+      }
       if (animate) this.hooks.onSolved?.([...this.moves]);
     }
     if (animate) this.hooks.onMove?.(this.moves);
   }
+
+  private drawnPos(an: Anim, now: number): [number, number] {
+    const t = Math.min(1, (now - an.t0) / 130);
+    return [an.from[0] + (an.to[0] - an.from[0]) * ease(t), an.from[1] + (an.to[1] - an.from[1]) * ease(t)];
+  }
+
+  private spawn(i: number, color: string, n: number, speed: number, life: number, size: number) {
+    const [x, y] = this.xy(i);
+    for (let k = 0; k < n; k++) {
+      const ang = Math.random() * Math.PI * 2, v = speed * (0.4 + Math.random() * 0.6);
+      this.particles.push({ x: x + 0.5, y: y + 0.5, vx: Math.cos(ang) * v, vy: Math.sin(ang) * v, life: life, max: life, color, size: size * (0.6 + Math.random() * 0.6) });
+    }
+  }
+  private dust = (i: number, color: string) => this.spawn(i, color, 4, 1.2, 260, 0.06);
+  private burst = (i: number, color: string) => this.spawn(i, color, 18, 3.2, 650, 0.09);
 
   private xy(i: number): [number, number] {
     return [i % this.g.w, Math.floor(i / this.g.w)];
@@ -129,6 +162,17 @@ export class Game {
   private frame = (now: number) => {
     requestAnimationFrame(this.frame);
     if (!this.g) return;
+    const dt = Math.min(50, now - (this.lastFrame || now));
+    this.lastFrame = now;
+    this.trauma = Math.max(0, this.trauma - dt / 600);
+    for (const p of this.particles) {
+      p.x += (p.vx * dt) / 1000;
+      p.y += (p.vy * dt) / 1000;
+      p.vx *= 0.9;
+      p.vy *= 0.9;
+      p.life -= dt;
+    }
+    this.particles = this.particles.filter((p) => p.life > 0);
     if (this.playing && this.queue.length && now - this.animA.t0 > 190) {
       this.step(this.queue.shift()!, true);
       if (!this.queue.length) this.playing = false;
@@ -139,6 +183,10 @@ export class Game {
   private draw(now: number) {
     const { ctx, cell: c, g } = this;
     ctx.clearRect(0, 0, g.w * c, g.h * c);
+    const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const sh = reduce ? 0 : this.trauma * this.trauma * c * 0.08;
+    ctx.save();
+    ctx.translate(Math.sin(now / 23) * sh, Math.sin(now / 31) * sh);
     for (let i = 0; i < g.w * g.h; i++) {
       const x = (i % g.w) * c, y = Math.floor(i / g.w) * c;
       const k = g.cells[i];
@@ -167,13 +215,21 @@ export class Game {
     }
     this.drawTwin(this.animA, COLORS.a, now, false);
     this.drawTwin(this.animB, COLORS.b, now, true);
+    for (const p of this.particles) {
+      ctx.globalAlpha = Math.max(0, p.life / p.max);
+      ctx.fillStyle = p.color;
+      ctx.beginPath();
+      ctx.arc(p.x * c, p.y * c, p.size * c, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+    ctx.restore();
   }
 
   private drawTwin(an: Anim, color: string, now: number, flip: boolean) {
     const { ctx, cell: c } = this;
     const t = Math.min(1, (now - an.t0) / 130);
-    let px = an.from[0] + (an.to[0] - an.from[0]) * ease(t);
-    let py = an.from[1] + (an.to[1] - an.from[1]) * ease(t);
+    let [px, py] = this.drawnPos(an, now);
     if (an.bump !== undefined && t < 1) {
       const k = Math.sin(t * Math.PI) * 0.14;
       px += DIR_VEC[an.bump][0] * k;

@@ -4,6 +4,7 @@ import { OFFICIAL } from './levels';
 import { fromRows, unpackMoves, type Grid, FLOOR, PAD_A, PAD_B } from './rules';
 import { solve } from './solver';
 import * as chain from './chain';
+import { sfx, muted, setMuted } from './sfx';
 
 interface LevelEntry {
   title: string;
@@ -34,9 +35,14 @@ let current: LevelEntry = official[0];
 const game = new Game($('board') as HTMLCanvasElement, {
   onMove: (m) => {
     $('stat-moves').textContent = String(m.length);
+    if (m.length) sfx.move(m.length);
   },
-  onSolved: (moves) => onSolved(moves),
-  onFell: () => setReceipt('bad', 'A twin fell', `<p>Restart (R) or undo (Z). The program would reject this run too: it stops at the move a twin lands in a pit.</p>`),
+  onBlocked: () => sfx.blocked(),
+  onSolved: (moves) => {
+    sfx.solved();
+    onSolved(moves);
+  },
+  onFell: () => (sfx.fell(), setReceipt('bad', 'A twin fell', `<p>Restart (R) or undo (Z). The program would reject this run too: it stops at the move a twin lands in a pit.</p>`)),
 });
 
 // ---------- level list ----------
@@ -81,6 +87,7 @@ function setReceipt(state: 'idle' | 'pending' | 'ok' | 'bad', head: string, body
   r.innerHTML = (head ? `<div class="head"><span>${head}</span>${pill ? `<span class="pill ${state}">${pill}</span>` : ''}</div>` : '') + body;
   if (state === 'ok' || state === 'bad') {
     r.classList.add('stamp');
+    state === 'ok' ? sfx.verified() : sfx.rejected();
   }
 }
 
@@ -188,6 +195,7 @@ window.addEventListener('keydown', (e) => {
     game.input(KEYS[e.key]);
   } else if (e.key === 'z' || e.key === 'Z' || e.key === 'Backspace') game.undo();
   else if (e.key === 'r' || e.key === 'R') game.restart();
+  else if (e.key === 'm' || e.key === 'M') muteBtn.click();
 });
 let touch: [number, number] | null = null;
 const well = $('board-well');
@@ -200,6 +208,10 @@ well.addEventListener('pointerup', (e) => {
   game.input(Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 3 : 2) : dy > 0 ? 1 : 0);
 });
 $('btn-undo').onclick = () => game.undo();
+const muteBtn = $('btn-mute');
+const syncMute = () => (muteBtn.textContent = muted ? 'Sound off' : 'Sound on');
+muteBtn.onclick = () => (setMuted(!muted), syncMute());
+syncMute();
 $('btn-restart').onclick = () => game.restart();
 window.addEventListener('resize', () => game.resize());
 
