@@ -8,9 +8,12 @@ Every solve is sent to the Twinlock program on Solana devnet as a list of moves.
 
 Players can also build levels. A level only gets published if its creator sends a solution the program can replay, so every level on the chain is provably solvable.
 
-- Play: _live link added at submission_
-- Program (devnet): `GeciFjoMLb14573Qw9zdjCNEW6JsYwvDWnzxwfwj8oDb`
-- Demo video: _added at submission_
+- Play: https://links.harindu.dev/twinlock/ (Solana devnet, no wallet needed)
+- Program (devnet): [`GeciFjoMLb14573Qw9zdjCNEW6JsYwvDWnzxwfwj8oDb`](https://explorer.solana.com/address/GeciFjoMLb14573Qw9zdjCNEW6JsYwvDWnzxwfwj8oDb?cluster=devnet)
+
+![A clear verified on Solana](docs/screenshots/verified-clear.png)
+
+![A forged 1-move clear rejected by the program](docs/screenshots/forged-clear-rejected.png)
 
 ## Why it needs a chain
 
