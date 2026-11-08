@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Twinlock: a puzzle Solana referees</title>
+    <meta name="description" content="Move two mirrored twins onto their pads. A Solana program replays every move, so scores cannot be faked." />
+    <link rel="icon" href="./mark.svg" type="image/svg+xml" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    <script type="module" crossorigin src="./assets/index-CCeq2Yq9.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/index-BI1eiqjp.css">
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand" href="./" aria-label="Twinlock home">
+        <img src="./mark.svg" alt="" width="24" height="24" />
+        <span>Twinlock</span>
+      </a>
+      <h1 class="level-title"><span id="level-name">Level</span> <span class="pill" id="net-pill">Solana devnet</span></h1>
+      <div class="topbar-right">
+        <label class="name-field">
+          <span class="lbl">Player</span>
+          <input id="player-name" maxlength="16" autocomplete="off" spellcheck="false" />
+        </label>
+        <button class="btn" id="btn-editor" type="button">Make a level</button>
+      </div>
+    </header>
+
+    <nav class="sidebar" aria-label="Levels">
+      <h2>Levels</h2>
+      <ol id="official-list" class="level-list"></ol>
+      <h2>Made by players</h2>
+      <ul id="community-list" class="level-list"><li class="empty">Loading from Solana…</li></ul>
+    </nav>
+
+    <main class="sheet">
+      <section class="board-area" aria-label="Board">
+        <div class="board-well" id="board-well">
+          <canvas id="board" aria-label="Puzzle board. Arrow keys or swipe move both twins; the amber twin mirrors left and right." role="img"></canvas>
+        </div>
+        <div class="board-bar">
+          <p class="rule-line"><span><span class="dot a"></span> Teal moves the way you press.</span> <span><span class="dot b"></span> Amber mirrors left and right.</span> <span class="goal">Get both onto their rings. Arrows or swipe, Z undo, R restart.</span></p>
+          <div class="board-actions">
+            <button class="btn ghost" id="btn-undo" type="button" title="Z">Undo</button>
+            <button class="btn ghost" id="btn-restart" type="button" title="R">Restart</button>
+            <button class="btn ghost" id="btn-mute" type="button" title="M">Sound on</button>
+          </div>
+        </div>
+      </section>
+
+      <aside class="side" aria-label="Run and proof">
+        <section class="run">
+          <h2>This run</h2>
+          <dl class="stats">
+            <div><dt>Moves</dt><dd id="stat-moves">0</dd></div>
+            <div><dt>Par</dt><dd id="stat-par">–</dd></div>
+            <div><dt>Best on chain</dt><dd id="stat-best">–</dd></div>
+          </dl>
+        </section>
+
+        <section class="proof" aria-live="polite">
+          <h2>Proof</h2>
+          <div id="receipt" class="receipt idle">
+            <p>Solve the board. Your move list goes to the Twinlock program, which replays it move by move and only records a clear it can reproduce.</p>
+          </div>
+          <details class="tamper">
+            <summary>Try to cheat</summary>
+            <p>Send a forged clear that claims this level in 1 move. The program replays it and refuses.</p>
+            <button class="btn danger" id="btn-forge" type="button">Send forged clear</button>
+          </details>
+        </section>
+
+        <section class="board-scores">
+          <h2>Leaderboard</h2>
+          <table>
+            <thead><tr><th scope="col">Player</th><th scope="col" class="num">Moves</th><th scope="col">Tx</th></tr></thead>
+            <tbody id="leaderboard"><tr><td colspan="3" class="muted">No clears yet</td></tr></tbody>
+          </table>
+          <button class="btn ghost" id="btn-watch" type="button" hidden>Watch the best solution</button>
+        </section>
+      </aside>
+    </main>
+
+    <dialog id="editor" aria-labelledby="editor-title">
+      <form method="dialog" class="editor">
+        <header>
+          <h2 id="editor-title">Make a level</h2>
+          <button class="btn ghost" value="close" type="submit">Close</button>
+        </header>
+        <div class="editor-body">
+          <div class="palette" role="radiogroup" aria-label="Paint">
+            <button type="button" data-paint="0" class="sel">Floor</button>
+            <button type="button" data-paint="1">Wall</button>
+            <button type="button" data-paint="4">Pit</button>
+            <button type="button" data-paint="A">Teal twin</button>
+            <button type="button" data-paint="B">Amber twin</button>
+            <button type="button" data-paint="2">Teal pad</button>
+            <button type="button" data-paint="3">Amber pad</button>
+            <label>Width <input type="number" id="ed-w" min="2" max="8" value="6" /></label>
+            <label>Height <input type="number" id="ed-h" min="2" max="8" value="6" /></label>
+            <label>Name <input id="ed-name" maxlength="24" value="" placeholder="Name your level" /></label>
+          </div>
+          <div class="ed-grid-wrap"><div id="ed-grid" class="ed-grid"></div></div>
+        </div>
+        <footer>
+          <p id="ed-status" class="muted">Paint the board, then solve it yourself. The program accepts a level only with a solution it can replay.</p>
+          <button class="btn" id="ed-test" type="button">Solve it to publish</button>
+        </footer>
+      </form>
+    </dialog>
+
+    <footer class="foot">
+      <p>Built for the MLH Solana Hackathon, November 2026. Program <a id="program-link" class="mono" target="_blank" rel="noopener"></a></p>
+    </footer>
+  </body>
+</html>
