@@ -73,8 +73,8 @@ for (const [label, vp] of [['desktop', { width: 1440, height: 900 }], ['phone', 
   check(await page.locator('#ed-test').isDisabled(), 'editor: publish disabled while a pad is missing');
   await page.close();
 }
-// editor: publish a level, then a second player finds and clears it
-{
+// editor: publish a level, then a second player finds and clears it (skipped on devnet so test levels don't reach players)
+if (!process.env.NO_PUBLISH) {
   const name = `Smoke ${Date.now() % 100000}`;
   const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
   await page.goto(url);

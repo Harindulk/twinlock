@@ -115,7 +115,7 @@ function bytes(...parts: (number[] | Uint8Array | number)[]) {
 
 async function send(accounts: Meta[], data: Uint8Array, opts: { skipPreflight?: boolean; extraSigner?: KeyPairSigner } = {}) {
   if (!sponsor) throw new ChainError('No sponsor key configured, so this build cannot send transactions.');
-  const { value: blockhash } = await rpc.getLatestBlockhash().send();
+  const { value: blockhash } = await retry429(() => rpc.getLatestBlockhash().send());
   const msg = pipe(
     createTransactionMessage({ version: 0 }),
     (m) => setTransactionMessageFeePayerSigner(sponsor!, m),
@@ -142,18 +142,31 @@ function toChainError(logs: string[], fallback: string, sig?: string) {
   return new ChainError(programLines || fallback, code, sig);
 }
 
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+// The public devnet RPC answers 429 under load; reads back off and retry instead of failing the clear.
+async function retry429<T>(fn: () => Promise<T>, tries = 6): Promise<T> {
+  for (let i = 0; ; i++) {
+    try {
+      return await fn();
+    } catch (e: any) {
+      if (i >= tries || e?.context?.statusCode !== 429) throw e;
+      await sleep(800 * 2 ** i);
+    }
+  }
+}
+
 async function confirm(sig: Signature) {
   for (let i = 0; i < 60; i++) {
-    const { value } = await rpc.getSignatureStatuses([sig]).send();
+    const { value } = await retry429(() => rpc.getSignatureStatuses([sig]).send());
     const st = value[0];
     if (st?.confirmationStatus === 'confirmed' || st?.confirmationStatus === 'finalized') {
       if (st.err) {
-        const tx = await rpc.getTransaction(sig, { commitment: 'confirmed', maxSupportedTransactionVersion: 0, encoding: 'json' }).send();
+        const tx = await retry429(() => rpc.getTransaction(sig, { commitment: 'confirmed', maxSupportedTransactionVersion: 0, encoding: 'json' }).send());
         throw toChainError((tx?.meta?.logMessages as string[]) ?? [], 'Transaction failed', sig);
       }
       return { sig: sig as string, slot: Number(st.slot) };
     }
-    await new Promise((r) => setTimeout(r, 500));
+    await sleep(1000);
   }
   throw new ChainError('Timed out waiting for confirmation', undefined, sig);
 }
